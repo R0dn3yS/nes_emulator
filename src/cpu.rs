@@ -111,9 +111,9 @@ mod test {
 
 	#[test]
   fn test_inx_overflow() {
-      let mut cpu = CPU::new();
-      cpu.register_x = 0xff;
-      cpu.interpret(vec![0xe8, 0xe8, 0x00]);
+    let mut cpu = CPU::new();
+    cpu.register_x = 0xff;
+    cpu.interpret(vec![0xe8, 0xe8, 0x00]);
 
 		assert_eq!(cpu.register_x, 1)
   }
