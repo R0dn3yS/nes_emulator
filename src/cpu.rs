@@ -1,5 +1,5 @@
 use crate::opcodes;
-use std::{collections::HashMap, ops::Add};
+use std::collections::HashMap;
 
 bitflags! {
 	pub struct CpuFlags: u8 {
