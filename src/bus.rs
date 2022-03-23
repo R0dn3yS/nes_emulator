@@ -10,7 +10,9 @@ const PPU_REGISTERS_MIRRORS_END: u16 = 0x3FFF;
 pub struct Bus {
 	cpu_vram: [u8; 2048],
 	prg_rom: Vec<u8>,
-	ppu: NesPPU
+	ppu: NesPPU,
+
+	cycles: usize,
 }
 
 impl Bus {
@@ -21,6 +23,7 @@ impl Bus {
 			cpu_vram: [0; 2048],
 			prg_rom: rom.prg_rom,
 			ppu: ppu,
+			cycles: 0,
 		}
 	}
 
@@ -31,6 +34,15 @@ impl Bus {
 			addr = addr % 0x4000;
 		}
 		self.prg_rom[addr as usize]
+	}
+
+	pub fn tick(&mut self, cycles: u8) {
+		self.cycles += cycles as usize;
+		self.ppu.tick(cycles * 3);
+	}
+
+	pub fn poll_nmi_status(&mut self) -> Option<u8> {
+		self.ppu.nmi_interrupt.take()
 	}
 }
 
