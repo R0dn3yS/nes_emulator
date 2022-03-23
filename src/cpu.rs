@@ -42,7 +42,7 @@ pub enum AddressingMode {
 	NoneAddressing,
 }
 
-trait Mem {
+pub trait Mem {
 	fn mem_read(&self, addr: u16) -> u8;
 
 	fn mem_write(&mut self, addr: u16, data: u8);
@@ -121,7 +121,7 @@ impl CPU {
 				let base = self.mem_read(self.program_counter);
 
 				let ptr: u8 = (base as u8).wrapping_add(self.register_x);
-				let lo = self.mem_read(base as u16);
+				let lo = self.mem_read(ptr as u16);
 				let hi = self.mem_read(ptr.wrapping_add(1) as u16);
 				(hi as u16) << 8 | (lo as u16)
 			}
@@ -159,9 +159,7 @@ impl CPU {
 	fn lda(&mut self, mode: &AddressingMode) {
 		let addr = self.get_operand_address(&mode);
 		let value = self.mem_read(addr);
-
-		self.register_a = value;
-		self.update_zero_and_negative_flags(self.register_a);
+		self.set_register_a(value);
 	}
 
 	fn sta(&mut self, mode: &AddressingMode) {
@@ -204,10 +202,18 @@ impl CPU {
 			self.status.remove(CpuFlags::ZERO);
 		}
 
-		if result & 0b1000_1000 != 0 {
+		if result >> 7 == 1 {
 			self.status.insert(CpuFlags::NEGATIV);
 		} else {
 			self.status.remove(CpuFlags::NEGATIV);
+		}
+	}
+
+	fn update_negative_flags(&mut self, result: u8) {
+		if result >> 7 == 1 {
+			self.status.insert(CpuFlags::NEGATIV)
+		} else {
+			self.status.remove(CpuFlags::NEGATIV)
 		}
 	}
 
@@ -228,8 +234,8 @@ impl CPU {
 	}
 
 	pub fn load(&mut self, program: Vec<u8>) {
-		self.memory[0x8000..(0x8000 + program.len())].copy_from_slice(&program[..]);
-		self.mem_write_u16(0xFFFC, 0x8000);
+		self.memory[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
+		self.mem_write_u16(0xFFFC, 0x0600);
 	}
 
 	pub fn reset(&mut self) {
@@ -272,14 +278,14 @@ impl CPU {
 		if (data ^ result) & (result ^ self.register_a) & 0x80 != 0 {
 			self.status.insert(CpuFlags::OVERFLOW);
 		} else {
-			self.status.remove(CpuFlags::OVERFLOW);
+			self.status.remove(CpuFlags::OVERFLOW); // TODO
 		}
 
 		self.set_register_a(result);
 	}
 
 	fn sbc(&mut self, mode: &AddressingMode) {
-		let addr = self.get_operand_address(mode);
+		let addr = self.get_operand_address(&mode);
 		let data = self.mem_read(addr);
 		self.add_to_register_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8);
 	}
@@ -297,7 +303,7 @@ impl CPU {
 
 	fn stack_push(&mut self, data: u8) {
 		self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
-		self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+		self.stack_pointer = self.stack_pointer.wrapping_sub(1)
 	}
 
 	fn stack_push_u16(&mut self, data: u16) {
@@ -379,7 +385,7 @@ impl CPU {
 			data |= 1;
 		}
 		self.mem_write(addr, data);
-		self.update_zero_and_negative_flags(data);
+		self.update_negative_flags(data);
 		data
 	}
 
@@ -411,10 +417,10 @@ impl CPU {
 		}
 		data >>= 1;
 		if old_carry {
-			data = data | 0b1000_0000;
+			data |= 0b1000_0000;
 		}
 		self.mem_write(addr, data);
-		self.update_zero_and_negative_flags(data);
+		self.update_negative_flags(data);
 		data
 }
 
@@ -429,7 +435,7 @@ impl CPU {
 		}
 		data >>= 1;
 		if old_carry {
-			data = data | 0b1000_0000;
+			data |= 0b1000_0000;
 		}
 		self.set_register_a(data);
 	}
@@ -519,6 +525,13 @@ impl CPU {
 	}
 
 	pub fn run(&mut self) {
+		self.run_with_callback(|_| {});
+	}
+
+	pub fn run_with_callback<F>(&mut self, mut callback: F)
+	where
+		F: FnMut(&mut CPU),
+	{
 		let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
 
 		loop {
@@ -526,7 +539,7 @@ impl CPU {
 			self.program_counter += 1;
 			let program_counter_state = self.program_counter;
 
-			let opcode = opcodes.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
+			let opcode = opcodes.get(&code).unwrap();
 
 			match code {
 				0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => {
@@ -663,6 +676,12 @@ impl CPU {
 				// CPX
 				0xe0 | 0xe4 | 0xec => {
 					self.compare(&opcode.mode, self.register_x);
+				}
+
+				// JMP Absolute
+				0x4c => {
+					let mem_address = self.mem_read_u16(self.program_counter);
+					self.program_counter = mem_address;
 				}
 
 				// JMP Indirect
@@ -813,6 +832,8 @@ impl CPU {
 			if program_counter_state == self.program_counter {
 				self.program_counter += (opcode.len - 1) as u16;
 			}
+
+			callback(self);
 		}
 	}
 }
