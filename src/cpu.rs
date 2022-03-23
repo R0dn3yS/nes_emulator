@@ -44,11 +44,11 @@ pub enum AddressingMode {
 }
 
 pub trait Mem {
-	fn mem_read(&self, addr: u16) -> u8;
+	fn mem_read(&mut self, addr: u16) -> u8;
 
 	fn mem_write(&mut self, addr: u16, data: u8);
 
-	fn mem_read_u16(&self, pos: u16) -> u16 {
+	fn mem_read_u16(&mut self, pos: u16) -> u16 {
 		let lo = self.mem_read(pos) as u16;
 		let hi = self.mem_read(pos + 1) as u16;
 		(hi << 8) | (lo as u16)
@@ -64,7 +64,7 @@ pub trait Mem {
 
 impl Mem for CPU {
 
-	fn mem_read(&self, addr: u16) -> u8 {
+	fn mem_read(&mut self, addr: u16) -> u8 {
 		self.bus.mem_read(addr)
 	}
 
@@ -72,7 +72,7 @@ impl Mem for CPU {
 		self.bus.mem_write(addr, data)
 	}
 
-	fn mem_read_u16(&self, addr: u16) -> u16 {
+	fn mem_read_u16(&mut self, addr: u16) -> u16 {
 		self.bus.mem_read_u16(addr)
 	}
 
@@ -94,7 +94,7 @@ impl CPU {
 		}
 	}
 
-	pub fn get_absolute_address(&self, mode: &AddressingMode, addr: u16) -> u16 {
+	pub fn get_absolute_address(&mut self, mode: &AddressingMode, addr: u16) -> u16 {
 		match mode {
 			AddressingMode::ZeroPage => self.mem_read(addr) as u16,
 
@@ -149,7 +149,7 @@ impl CPU {
 		}
 	}
 
-	fn get_operand_address(&self, mode: &AddressingMode) -> u16 {
+	fn get_operand_address(&mut self, mode: &AddressingMode) -> u16 {
 		match mode {
 			AddressingMode::Immediate => self.program_counter,
 			_ => self.get_absolute_address(mode, self.program_counter),
@@ -972,7 +972,7 @@ impl CPU {
 				// NOP Read
 				0x04 | 0x44 | 0x64 | 0x14 | 0x34 | 0x54 | 0x74 | 0xd4 | 0xf4 | 0x0c | 0x1c | 0x3c | 0x5c | 0x7c | 0xdc | 0xfc => {
 					let addr = self.get_operand_address(&opcode.mode);
-					let data = self.mem_read(addr);
+					let _data = self.mem_read(addr);
 					// Do nothing
 				}
 
@@ -1080,7 +1080,7 @@ impl CPU {
 					self.mem_write(mem_address, data)
 				}
 
-				_ => todo!(),
+				// _ => todo!(),
 			}
 
 			if program_counter_state == self.program_counter {
