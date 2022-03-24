@@ -9,20 +9,15 @@ pub mod joypad;
 
 use std::collections::HashMap;
 
-use cpu::Mem;
 use cartridge::Rom;
 use cpu::CPU;
 use bus::Bus;
-use trace::trace;
 use render::frame::Frame;
-use render::palette;
 use ppu::NesPPU;
 // use rand::Rng;
 
 use sdl2::event::Event;
-use sdl2::EventPump;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 
 #[macro_use]
