@@ -17,7 +17,7 @@ pub fn trace(cpu: &mut CPU) -> String {
 	let (mem_addr, stored_value) = match ops.mode {
 		AddressingMode::Immediate | AddressingMode::NoneAddressing => (0, 0),
 		_ => {
-			let addr = cpu.get_absolute_address(&ops.mode, begin + 1);
+			let (addr, _) = cpu.get_absolute_address(&ops.mode, begin + 1);
 			(addr, cpu.mem_read(addr))
 		}
 	};
@@ -135,10 +135,11 @@ mod test {
 	use super::*;
 	use crate::bus::Bus;
 	use crate::cartridge::test::test_rom;
+	use crate::ppu::NesPPU;
 
 	#[test]
 	fn test_format_trace() {
-		let mut bus = Bus::new(test_rom());
+		let mut bus = Bus::new(test_rom(), |ppu: &NesPPU| {});
 		bus.mem_write(100, 0xa2);
 		bus.mem_write(101, 0x01);
 		bus.mem_write(102, 0xca);
@@ -170,7 +171,7 @@ mod test {
 
 	#[test]
 	fn test_format_mem_access() {
-		let mut bus = Bus::new(test_rom());
+		let mut bus = Bus::new(test_rom(), |ppu: &NesPPU| {});
 		// ORA ($33), Y
 		bus.mem_write(100, 0x11);
 		bus.mem_write(101, 0x33);
