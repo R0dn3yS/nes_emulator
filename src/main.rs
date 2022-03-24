@@ -4,12 +4,15 @@ pub mod bus;
 pub mod cartridge;
 pub mod trace;
 pub mod ppu;
+pub mod render;
 
 use cpu::Mem;
 use cartridge::Rom;
 use cpu::CPU;
 use bus::Bus;
 use trace::trace;
+use render::frame::Frame;
+use render::palette;
 // use rand::Rng;
 
 use sdl2::event::Event;
@@ -98,16 +101,13 @@ fn main() {
 		.unwrap();
 
 	// load the game
-	let bytes: Vec<u8> = std::fs::read("nestest.nes").unwrap();
+	let bytes: Vec<u8> = std::fs::read("Alter_Ego.nes").unwrap();
 	let rom = Rom::new(&bytes).unwrap();
 
 	let bus = Bus::new(rom);
 	let mut cpu = CPU::new(bus);
-	cpu.reset();
-	cpu.program_counter = 0xC000;
 
-	// let mut screen_state = [0 as u8; 32 * 3 * 32];
-	// let mut rng = rand::thread_rng();
+	cpu.reset();
 
 	// run the game cycle
 	cpu.run_with_callback(move |cpu| {
