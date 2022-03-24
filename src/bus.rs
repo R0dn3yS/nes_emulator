@@ -1,6 +1,7 @@
 use crate::cpu::Mem;
 use crate::cartridge::Rom;
 use crate::ppu::{NesPPU, PPU};
+use crate::joypad::Joypad;
 
 const RAM: u16 = 0x0000;
 const RAM_MIRRORS_END: u16 = 0x1FFF;
@@ -13,13 +14,14 @@ pub struct Bus<'call> {
 	ppu: NesPPU,
 
 	cycles: usize,
-	gameloop_callback: Box<dyn FnMut(&NesPPU) + 'call>,
+	gameloop_callback: Box<dyn FnMut(&NesPPU, &mut Joypad) + 'call>,
+	joypad1: Joypad,
 }
 
 impl<'a> Bus<'a> {
 	pub fn new<'call, F>(rom: Rom, gameloop_callback: F) -> Bus<'call>
 	where
-		F: FnMut(&NesPPU) + 'call,
+		F: FnMut(&NesPPU, &mut Joypad) + 'call,
 	{
 		let ppu = NesPPU::new(rom.chr_rom, rom.screen_mirroring);
 
@@ -29,6 +31,7 @@ impl<'a> Bus<'a> {
 			ppu: ppu,
 			cycles: 0,
 			gameloop_callback: Box::from(gameloop_callback),
+			joypad1: Joypad::new(),
 		}
 	}
 
@@ -45,7 +48,7 @@ impl<'a> Bus<'a> {
 		self.cycles += cycles as usize;
 		let new_frame = self.ppu.tick(cycles * 3);
 		if new_frame {
-			(self.gameloop_callback)(&self.ppu);
+			(self.gameloop_callback)(&self.ppu, &mut self.joypad1);
 		}
 	}
 
@@ -63,7 +66,6 @@ impl Mem for Bus<'_> {
 			}
 			0x2000 | 0x2001 | 0x2003 | 0x2005 | 0x2006 | 0x4014 => {
 				panic!("Attempt to read from write-only PPU address {:x}", addr);
-				0
 			}
 			0x2002 => self.ppu.read_status(),
 			0x2004 => self.ppu.read_oam_data(),
@@ -75,8 +77,7 @@ impl Mem for Bus<'_> {
 			}
 
 			0x4016 => {
-				// Ignore joypad 1
-				0
+				self.joypad1.read()
 			}
 
 			0x4017 => {
@@ -138,7 +139,7 @@ impl Mem for Bus<'_> {
 			}
 
 			0x4016 => {
-				// Ignore joypad 1
+				self.joypad1.write(data);
 			}
 
 			0x4017 => {
